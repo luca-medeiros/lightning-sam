@@ -2,10 +2,10 @@ import os
 import cv2
 import torch
 import numpy as np
+import torchvision.transforms as transforms
 
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
-import torchvision.transforms as transforms
 from pycocotools.coco import COCO
 from segment_anything.utils.transforms import ResizeLongestSide
 

@@ -1,14 +1,12 @@
 import os
 import torch
-
 import lightning as L
 import torch.nn.functional as F
 
 from typing import Callable, Dict
-from lightning.fabric.fabric import _FabricOptimizer
-
-from segment_anything import sam_model_registry
 from torch.utils.data import DataLoader
+from segment_anything import sam_model_registry
+from lightning.fabric.fabric import _FabricOptimizer
 
 from losses import FocalLoss, DiceLoss
 from dataset import load_datasets
@@ -19,14 +17,14 @@ out_dir = "out/training"
 learning_rate = 1e-4
 weight_decay = 0
 num_epochs = 100
-eval_interval = 3
+eval_interval = 10
 freeze_image_encoder = True
 freeze_prompt_encoder = True
 freeze_mask_decoder = False
 
 
 def main(model_type, checkpoint) -> None:
-    fabric = L.Fabric(accelerator="cuda", devices=4, precision="bf16-mixed", strategy="ddp")
+    fabric = L.Fabric(accelerator="cuda", devices=4, strategy="ddp")
     fabric.launch()
     fabric.seed_everything(1337 + fabric.global_rank)
 
@@ -126,3 +124,6 @@ def forward_pass(data, model, device):
     # binary_mask = normalize(threshold(upscaled_masks, 0.0, 0))
 
     return pred_masks, gt_masks
+
+if __name__ == "__main__":
+    main('vit_h', 'sam_vit_h_4b8939.pth')
