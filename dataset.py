@@ -42,7 +42,7 @@ class COCODataset(Dataset):
 
         bboxes = np.stack(bboxes, axis=0)
         masks = np.stack(masks, axis=0)
-        return image, torch.tensor(bboxes), torch.tensor(masks).long()
+        return image, torch.tensor(bboxes), torch.tensor(masks).float()
 
 
 def collate_fn(batch):
@@ -84,8 +84,8 @@ class ResizeAndPad:
 def load_datasets():
     # transform = ResizeLongestSide(img_size)
     transform = ResizeAndPad(1024)
-    dataset = COCODataset(root_dir='./lit-sam/small_coco/data',
-                          annotation_file='./lit-sam/small_coco/coco.json',
+    dataset = COCODataset(root_dir='./small_coco/data',
+                          annotation_file='./small_coco/coco.json',
                           transform=transform)
     coco_dataloader = DataLoader(dataset, batch_size=2, shuffle=True, num_workers=0, collate_fn=collate_fn)
     return coco_dataloader, coco_dataloader
