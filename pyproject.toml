@@ -8,10 +8,7 @@ repository = "https://github.com/luca-medeiros/lightning-sam"
 authors = [
   "Luca Medeiros <lucamedeiros@outlook.com>",
 ]
-license = ""
-packages = [
-    { include = "*" },
-]
+license = "LICENSE"
 
 [tool.poetry.dependencies]
 python = "^3.8, <3.11"
@@ -20,10 +17,10 @@ pycocotools = "^2.0.6"
 numpy = "^1.24.2"
 opencv_python = "^4.7.0.72"
 Pillow = "9.3.0"
-torch "^2.0.0"
+torch = "^2.0.0"
 torchvision = "^0.15.1"
 lightning = "^2.0.1"
-segmentation-models-pytorch = "^0.3.2
+segmentation-models-pytorch = "^0.3.2"
 segment-anything = {git = "https://github.com/facebookresearch/segment-anything.git"}
 
 [tool.poetry.group.dev.dependencies]

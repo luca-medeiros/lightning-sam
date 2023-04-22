@@ -1,20 +1,21 @@
 import os
-import torch
 import time
-import lightning as L
-import torch.nn.functional as F
 
+import lightning as L
+import segmentation_models_pytorch as smp
+import torch
+import torch.nn.functional as F
 from box import Box
-from torch.utils.data import DataLoader
-from segment_anything import sam_model_registry
+from config import cfg
+from dataset import load_datasets
 from lightning.fabric.fabric import _FabricOptimizer
 from lightning.fabric.loggers import TensorBoardLogger
-import segmentation_models_pytorch as smp
-
-from losses import FocalLoss, DiceLoss
-from dataset import load_datasets
-from config import cfg
-from utils import AverageMeter, calc_iou
+from losses import DiceLoss
+from losses import FocalLoss
+from segment_anything import sam_model_registry
+from torch.utils.data import DataLoader
+from utils import AverageMeter
+from utils import calc_iou
 
 torch.set_float32_matmul_precision('high')
 
@@ -89,7 +90,7 @@ def train_sam(
             images, bboxes, gt_masks = data
             batch_size = images.size(0)
             pred_masks, iou_predictions = forward_pass(model, images, bboxes)
-            num_masks = sum([len(pred_mask) for pred_mask in pred_masks])
+            num_masks = sum(len(pred_mask) for pred_mask in pred_masks)
             loss_focal = fabric.to_device(torch.tensor(0.))
             loss_dice = fabric.to_device(torch.tensor(0.))
             loss_iou = fabric.to_device(torch.tensor(0.))
