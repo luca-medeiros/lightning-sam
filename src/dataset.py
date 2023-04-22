@@ -18,6 +18,9 @@ class COCODataset(Dataset):
         self.coco = COCO(annotation_file)
         self.image_ids = list(self.coco.imgs.keys())
 
+        # Filter out image_ids without any annotations
+        self.image_ids = [image_id for image_id in self.image_ids if len(self.coco.getAnnIds(imgIds=image_id)) > 0]
+
     def __len__(self):
         return len(self.image_ids)
 
@@ -83,15 +86,22 @@ class ResizeAndPad:
         return image, masks, bboxes
 
 
-def load_datasets():
-    transform = ResizeAndPad(1024)
-    dataset = COCODataset(root_dir='./small_coco/data', annotation_file='./small_coco/coco.json', transform=transform)
-    coco_dataloader = DataLoader(dataset, batch_size=2, shuffle=True, num_workers=0, collate_fn=collate_fn)
-    return coco_dataloader, coco_dataloader
-
-
-if __name__ == '__main__':
-    coco_dataloader, _ = load_datasets()
-    for data in coco_dataloader:
-        print(data)
-        break
+def load_datasets(cfg, img_size):
+    transform = ResizeAndPad(img_size)
+    train = COCODataset(root_dir=cfg.dataset.train.root_dir,
+                        annotation_file=cfg.dataset.train.annotation_file,
+                        transform=transform)
+    val = COCODataset(root_dir=cfg.dataset.val.root_dir,
+                      annotation_file=cfg.dataset.val.annotation_file,
+                      transform=transform)
+    train_dataloader = DataLoader(train,
+                                  batch_size=cfg.batch_size,
+                                  shuffle=True,
+                                  num_workers=cfg.num_workers,
+                                  collate_fn=collate_fn)
+    val_dataloader = DataLoader(val,
+                                batch_size=cfg.batch_size,
+                                shuffle=True,
+                                num_workers=cfg.num_workers,
+                                collate_fn=collate_fn)
+    return train_dataloader, val_dataloader

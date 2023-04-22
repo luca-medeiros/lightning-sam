@@ -5,7 +5,7 @@ config = {
     "batch_size": 8,
     "num_workers": 4,
     "num_epochs": 300,
-    "eval_interval": 3,
+    "eval_interval": 300,
     "out_dir": "out/training",
     "opt": {
         "learning_rate": 1e-4,
@@ -22,12 +22,12 @@ config = {
     },
     "dataset": {
         "train": {
-            "root_dir": "/mnt/nas/data/coco/coco2017/train2017",
-            "annotation_file": "/mnt/nas/data/coco/coco2017/annotations/instances_train2017.json"
+            "root_dir": "/coco/coco2017/train2017",
+            "annotation_file": "/coco/coco2017/annotations/instances_train2017.json"
         },
         "val": {
-            "root_dir": "/mnt/nas/data/coco/coco2017/val2017",
-            "annotation_file": "/mnt/nas/data/coco/coco2017/annotations/instances_val2017.json"
+            "root_dir": "/coco/coco2017/val2017",
+            "annotation_file": "/coco/coco2017/annotations/instances_val2017.json"
         }
     }
 }
