@@ -33,7 +33,8 @@ class COCODataset(Dataset):
         masks = []
 
         for ann in anns:
-            bboxes.append(ann['bbox'])
+            x, y, w, h = ann['bbox']
+            bboxes.append([x, y, x + w, y + h])
             mask = self.coco.annToMask(ann)
             masks.append(mask)
 
@@ -64,6 +65,7 @@ class ResizeAndPad:
         image = self.transform.apply_image(image)
         masks = [torch.tensor(self.transform.apply_image(mask)) for mask in masks]
         image = self.to_tensor(image)
+
         # Pad image and masks to form a square
         _, h, w = image.shape
         max_dim = max(w, h)
@@ -75,18 +77,15 @@ class ResizeAndPad:
         masks = [transforms.Pad(padding)(mask) for mask in masks]
 
         # Adjust bounding boxes
-        self.transform.apply_boxes(bboxes, (og_h, og_w))
-        bboxes = [[bbox[0] + pad_w, bbox[1] + pad_h, bbox[2], bbox[3]] for bbox in bboxes]
+        bboxes = self.transform.apply_boxes(bboxes, (og_h, og_w))
+        bboxes = [[bbox[0] + pad_w, bbox[1] + pad_h, bbox[2] + pad_w, bbox[3] + pad_h] for bbox in bboxes]
 
         return image, masks, bboxes
 
 
 def load_datasets():
-    # transform = ResizeLongestSide(img_size)
     transform = ResizeAndPad(1024)
-    dataset = COCODataset(root_dir='./small_coco/data',
-                          annotation_file='./small_coco/coco.json',
-                          transform=transform)
+    dataset = COCODataset(root_dir='./small_coco/data', annotation_file='./small_coco/coco.json', transform=transform)
     coco_dataloader = DataLoader(dataset, batch_size=2, shuffle=True, num_workers=0, collate_fn=collate_fn)
     return coco_dataloader, coco_dataloader
 
