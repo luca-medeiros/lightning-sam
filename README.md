@@ -9,6 +9,10 @@ This library allows you to fine-tune the powerful Segment-Anything model from Me
 - Efficient fine-tuning of Segment-Anything model from MetaAI
 - Includes training and validation loops
 
+## Results
+
+Currently fine-tuning on coco2017 with 4xA100 80gb. Update soon.
+
 ## Installation
 
 ```
@@ -27,6 +31,8 @@ pip install .
 
 ## Notes
 
+- Uses the original implementation of SAM.
+- Loss calculated as stated on the paper (20 * focal loss + dice loss + mse loss).
 - Only supports bounding box input prompts.
 
 ## Resources
