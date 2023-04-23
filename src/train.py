@@ -63,6 +63,7 @@ def train_sam(
     fabric: L.Fabric,
     model: torch.nn.Module,
     optimizer: _FabricOptimizer,
+    scheduler: _FabricOptimizer,
     train_dataloader: DataLoader,
     val_dataloader: DataLoader,
 ):
@@ -102,6 +103,7 @@ def train_sam(
             optimizer.zero_grad()
             fabric.backward(loss_total)
             optimizer.step()
+            scheduler.step()
             batch_time.update(time.time() - end)
             end = time.time()
 
@@ -118,6 +120,24 @@ def train_sam(
                          f'IoU Loss {iou_losses.val:.4f} ({iou_losses.avg:.4f})\t'
                          f'Total Loss {total_losses.val:.4f} ({total_losses.avg:.4f})\t')
     validate(fabric, model, val_dataloader, epoch)
+
+
+def configure_opt(cfg, model):
+
+    def lr_lambda(step):
+        if step < cfg.opt.warmup_steps:
+            return step / cfg.opt.warmup_steps
+        elif step < cfg.opt.steps[0]:
+            return 1.0
+        elif step < cfg.opt.steps[1]:
+            return 1 / cfg.opt.decay_factor
+        else:
+            return 1 / (cfg.opt.decay_factor**2)
+
+    optimizer = torch.optim.Adam(model.model.parameters(), lr=cfg.opt.learning_rate, weight_decay=cfg.opt.weight_decay)
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
+
+    return optimizer, scheduler
 
 
 def main(cfg) -> None:
@@ -139,12 +159,10 @@ def main(cfg) -> None:
     train_data = fabric._setup_dataloader(train_data)
     val_data = fabric._setup_dataloader(val_data)
 
-    optimizer = torch.optim.Adam(model.model.mask_decoder.parameters(),
-                                 lr=cfg.opt.learning_rate,
-                                 weight_decay=cfg.opt.weight_decay)
-    model, optimizer = fabric.setup(model, optimizer)
+    optimizer, scheduler = configure_opt(cfg, model)
+    model, optimizer, scheduler = fabric.setup(model, optimizer, scheduler)
 
-    train_sam(cfg, fabric, model, optimizer, train_data, val_data)
+    train_sam(cfg, fabric, model, optimizer, scheduler, train_data, val_data)
 
 
 if __name__ == "__main__":
