@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-#PyTorch
 ALPHA = 0.8
 GAMMA = 2
 
@@ -13,8 +12,6 @@ class FocalLoss(nn.Module):
         super().__init__()
 
     def forward(self, inputs, targets, alpha=ALPHA, gamma=GAMMA, smooth=1):
-
-        #comment out if your model contains a sigmoid or equivalent activation layer
         inputs = F.sigmoid(inputs)
 
         #flatten label and prediction tensors
@@ -35,8 +32,6 @@ class DiceLoss(nn.Module):
         super().__init__()
 
     def forward(self, inputs, targets, smooth=1):
-
-        #comment out if your model contains a sigmoid or equivalent activation layer
         inputs = F.sigmoid(inputs)
 
         #flatten label and prediction tensors
