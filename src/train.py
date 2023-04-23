@@ -12,7 +12,7 @@ from lightning.fabric.fabric import _FabricOptimizer
 from lightning.fabric.loggers import TensorBoardLogger
 from losses import DiceLoss
 from losses import FocalLoss
-from segment_anything import sam_model_registry
+from model import Model
 from torch.utils.data import DataLoader
 from utils import AverageMeter
 from utils import calc_iou
@@ -20,7 +20,7 @@ from utils import calc_iou
 torch.set_float32_matmul_precision('high')
 
 
-def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoader, global_iter: int):
+def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoader, epoch: int):
     model.eval()
     ious = AverageMeter()
     precisions = AverageMeter()
@@ -30,7 +30,7 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoade
         for iter, data in enumerate(val_dataloader):
             images, bboxes, gt_masks = data
             num_images = images.size(0)
-            pred_masks, _ = forward_pass(model, images, bboxes)
+            pred_masks, _ = model(images, bboxes)
             for pred_mask, gt_mask in zip(pred_masks, gt_masks):
                 batch_stats = smp.metrics.get_stats(
                     pred_mask,
@@ -54,8 +54,7 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoade
     fabric.print(f"Saving checkpoint to {cfg.out_dir}")
     state_dict = model.state_dict()
     if fabric.global_rank == 0:
-        torch.save(state_dict, os.path.join(cfg.out_dir,
-                                            f"global_iter-{global_iter:06d}-f1{f1_scores.avg:.2f}-ckpt.pth"))
+        torch.save(state_dict, os.path.join(cfg.out_dir, f"epoch-{epoch:06d}-f1{f1_scores.avg:.2f}-ckpt.pth"))
     model.train()
 
 
@@ -71,7 +70,6 @@ def train_sam(
 
     focal_loss = FocalLoss()
     dice_loss = DiceLoss()
-    global_iter = 0
 
     for epoch in range(cfg.num_epochs):
         batch_time = AverageMeter()
@@ -83,17 +81,17 @@ def train_sam(
         end = time.time()
 
         for iter, data in enumerate(train_dataloader):
-            if global_iter > 0 and global_iter % cfg.eval_interval == 0:
-                validate(fabric, model, val_dataloader, global_iter)
+            if epoch > 0 and epoch % cfg.eval_interval == 0:
+                validate(fabric, model, val_dataloader, epoch)
 
             data_time.update(time.time() - end)
             images, bboxes, gt_masks = data
             batch_size = images.size(0)
-            pred_masks, iou_predictions = forward_pass(model, images, bboxes)
+            pred_masks, iou_predictions = model(images, bboxes)
             num_masks = sum(len(pred_mask) for pred_mask in pred_masks)
-            loss_focal = fabric.to_device(torch.tensor(0.))
-            loss_dice = fabric.to_device(torch.tensor(0.))
-            loss_iou = fabric.to_device(torch.tensor(0.))
+            loss_focal = torch.tensor(0., device=fabric.device)
+            loss_dice = torch.tensor(0., device=fabric.device)
+            loss_iou = torch.tensor(0., device=fabric.device)
             for pred_mask, gt_mask, iou_prediction in zip(pred_masks, gt_masks, iou_predictions):
                 batch_iou = calc_iou(pred_mask, gt_mask)
                 loss_focal += focal_loss(pred_mask, gt_mask, num_masks)
@@ -106,7 +104,6 @@ def train_sam(
             optimizer.step()
             batch_time.update(time.time() - end)
             end = time.time()
-            global_iter += 1
 
             focal_losses.update(loss_focal.item(), batch_size)
             dice_losses.update(loss_dice.item(), batch_size)
@@ -120,39 +117,7 @@ def train_sam(
                          f'Dice Loss {dice_losses.val:.4f} ({dice_losses.avg:.4f})\t'
                          f'IoU Loss {iou_losses.val:.4f} ({iou_losses.avg:.4f})\t'
                          f'Total Loss {total_losses.val:.4f} ({total_losses.avg:.4f})\t')
-
-
-def forward_pass(model, images, bboxes):
-    _, _, H, W = images.shape
-    image_embeddings = model.image_encoder(images)
-    pred_masks = []
-    ious = []
-    for embedding, bbox in zip(image_embeddings, bboxes):
-        sparse_embeddings, dense_embeddings = model.prompt_encoder(
-            points=None,
-            boxes=bbox,
-            masks=None,
-        )
-
-        low_res_masks, iou_predictions = model.mask_decoder(
-            image_embeddings=embedding.unsqueeze(0),
-            image_pe=model.prompt_encoder.get_dense_pe(),
-            sparse_prompt_embeddings=sparse_embeddings,
-            dense_prompt_embeddings=dense_embeddings,
-            multimask_output=False,
-        )
-
-        masks = F.interpolate(
-            low_res_masks,
-            (H, W),
-            mode="bilinear",
-            align_corners=False,
-        )
-        pred_masks.append(masks.squeeze(1))
-        ious.append(iou_predictions)
-    # binary_mask = normalize(threshold(upscaled_masks, 0.0, 0))
-
-    return pred_masks, ious
+    validate(fabric, model, val_dataloader, epoch)
 
 
 def main(cfg) -> None:
@@ -167,23 +132,14 @@ def main(cfg) -> None:
         os.makedirs(cfg.out_dir, exist_ok=True)
 
     with fabric.device:
-        model = sam_model_registry[cfg.model.type](checkpoint=cfg.model.checkpoint)
-        model.train()
-    if cfg.model.freeze.image_encoder:
-        for param in model.image_encoder.parameters():
-            param.requires_grad = False
-    if cfg.model.freeze.prompt_encoder:
-        for param in model.prompt_encoder.parameters():
-            param.requires_grad = False
-    if cfg.model.freeze.mask_decoder:
-        for param in model.mask_decoder.parameters():
-            param.requires_grad = False
+        model = Model(cfg)
+        model.setup()
 
-    train_data, val_data = load_datasets(cfg, model.image_encoder.img_size)
+    train_data, val_data = load_datasets(cfg, model.model.image_encoder.img_size)
     train_data = fabric._setup_dataloader(train_data)
     val_data = fabric._setup_dataloader(val_data)
 
-    optimizer = torch.optim.Adam(model.mask_decoder.parameters(),
+    optimizer = torch.optim.Adam(model.model.mask_decoder.parameters(),
                                  lr=cfg.opt.learning_rate,
                                  weight_decay=cfg.opt.weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
