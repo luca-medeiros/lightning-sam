@@ -5,7 +5,7 @@ This library allows you to fine-tune the powerful Segment-Anything model from Me
 This repo is an experiment; A PoC to see if fine-tuning SAM using bounding boxes as prompts would increase the IoU or improve the quality of the masks in general. One can use a COCO format dataset to fine-tune SAM for a specific task where SAM does not perform well (e.g., segmenting text on documents) and then use that model with interactive prompts just like SAM.
 
 For generating bboxes from text and prompt them to SAM you may check:
-https://github.com/luca-medeiros/lang-segment-anything
+(lang-segment-anything)\[https://github.com/luca-medeiros/lang-segment-anything\]
 
 ## Features
 
