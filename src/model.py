@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 from segment_anything import sam_model_registry
+from segment_anything import SamPredictor
 
 
 class Model(nn.Module):
@@ -52,3 +53,6 @@ class Model(nn.Module):
             ious.append(iou_predictions)
 
         return pred_masks, ious
+
+    def get_predictor(self):
+        return SamPredictor(self.model)
