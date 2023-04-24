@@ -2,6 +2,11 @@
 
 This library allows you to fine-tune the powerful Segment-Anything model from MetaAI for your custom COCO-format datasets. The library is built on top of Lightning AI's Fabric framework, providing an efficient and easy-to-use implementation for achieving state-of-the-art instance segmentation results.
 
+This repo is an experiment; A PoC to see if fine-tuning SAM using bounding boxes as prompts would increase the IoU or improve the quality of the masks in general. One can use a COCO format dataset to fine-tune SAM for a specific task where SAM does not perform well (e.g., segmenting text on documents) and then use that model with interactive prompts just like SAM.
+
+For generating bboxes from text and prompt them to SAM you may check:
+https://github.com/luca-medeiros/lang-segment-anything
+
 ## Features
 
 - Supports custom COCO-format datasets
@@ -11,7 +16,14 @@ This library allows you to fine-tune the powerful Segment-Anything model from Me
 
 ## Results
 
-Currently fine-tuning on coco2017 with 4xA100 80gb. Update soon.
+Using bbox prompt, the table below shows the mask quality of the original and fine-tuned models.
+
+| Dataset      | Type       | Mean IoU | Mean F1 | Epoch |
+| ------------ | ---------- | -------- | ------- | ----- |
+| COCO2017     | Original   | 0.7978   | 0.8749  |       |
+| COCO2017     | Fine-tune  | 0.8070   | 0.8816  | 2     |
+| TrashCan 1.0 | Original   | 0.6643   | 0.7808  |       |
+| TrashCan 1.0 | Fine-tuned | 0.7888   | 0.8738  | 5     |
 
 ## Installation
 
