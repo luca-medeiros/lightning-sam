@@ -18,12 +18,12 @@ https://github.com/luca-medeiros/lang-segment-anything
 
 Using bbox prompt, the table below shows the mask quality of the original and fine-tuned models.
 
-| Dataset      | Type       | Mean IoU | Mean F1 | Epoch |
-| ------------ | ---------- | -------- | ------- | ----- |
-| COCO2017     | Original   | 0.7978   | 0.8749  |       |
-| COCO2017     | Fine-tune  | 0.8070   | 0.8816  | 2     |
-| TrashCan 1.0 | Original   | 0.6643   | 0.7808  |       |
-| TrashCan 1.0 | Fine-tuned | 0.7888   | 0.8738  | 5     |
+| Dataset                                                         | Type       | Mean IoU | Mean F1 | Epoch |
+| --------------------------------------------------------------- | ---------- | -------- | ------- | ----- |
+| COCO2017                                                        | Original   | 0.7978   | 0.8749  |       |
+| COCO2017                                                        | Fine-tune  | 0.8070   | 0.8816  | 2     |
+| [TrashCan 1.0](https://conservancy.umn.edu/handle/11299/214865) | Original   | 0.6643   | 0.7808  |       |
+| [TrashCan 1.0](https://conservancy.umn.edu/handle/11299/214865) | Fine-tuned | 0.7888   | 0.8738  | 5     |
 
 ## Installation
 
