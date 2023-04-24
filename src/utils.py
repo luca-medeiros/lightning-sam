@@ -45,7 +45,7 @@ def draw_image(image, masks, boxes, labels, alpha=0.4):
     if boxes is not None:
         image = draw_bounding_boxes(image, boxes, colors=['red'] * len(boxes), labels=labels, width=2)
     if masks is not None:
-        image = draw_segmentation_masks(image, masks=masks, colors=['cyan'] * len(masks), alpha=alpha)
+        image = draw_segmentation_masks(image, masks=masks, colors=['red'] * len(masks), alpha=alpha)
     return image.numpy().transpose(1, 2, 0)
 
 
@@ -69,11 +69,8 @@ def visualize(cfg: Box):
         ann_ids = dataset.coco.getAnnIds(imgIds=image_id)
         anns = dataset.coco.loadAnns(ann_ids)
         bboxes = []
-        masks = []
         for ann in anns:
             x, y, w, h = ann['bbox']
-            mask = dataset.coco.annToMask(ann)
-            masks.append(mask)
             bboxes.append([x, y, x + w, y + h])
         bboxes = torch.as_tensor(bboxes, device=model.model.device)
         transformed_boxes = predictor.transform.apply_boxes_torch(bboxes, image.shape[:2])
@@ -84,8 +81,7 @@ def visualize(cfg: Box):
             boxes=transformed_boxes,
             multimask_output=False,
         )
-        masks = torch.as_tensor(masks, dtype=torch.bool)
-        image_output = draw_image(image, masks, boxes=None, labels=None)
+        image_output = draw_image(image, masks.squeeze(1), boxes=None, labels=None)
         cv2.imwrite(image_output_path, image_output)
 
 
