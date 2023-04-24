@@ -23,7 +23,19 @@ Using bbox prompt, the table below shows the mask quality of the original and fi
 | COCO2017                                                        | Original   | 0.7978   | 0.8749  |       |
 | COCO2017                                                        | Fine-tune  | 0.8070   | 0.8816  | 2     |
 | [TrashCan 1.0](https://conservancy.umn.edu/handle/11299/214865) | Original   | 0.6643   | 0.7808  |       |
-| [TrashCan 1.0](https://conservancy.umn.edu/handle/11299/214865) | Fine-tuned | 0.7888   | 0.8738  | 5     |
+| [TrashCan 1.0](https://conservancy.umn.edu/handle/11299/214865) | Fine-tuned | 0.7888   | 0.8738  | 6     |
+
+<details>
+<summary>Comparison images</summary>
+<br>
+TrashCan 1.0
+GT | Fine-tuned SAM | Original SAM
+
+![1](assets/1.png)
+![2](assets/2.png)
+![3](assets/3.png)
+
+</details>
 
 ## Installation
 
