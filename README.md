@@ -25,7 +25,7 @@ Using bbox prompt, the table below shows the mask quality of the original and fi
 | [TrashCan 1.0](https://conservancy.umn.edu/handle/11299/214865) | Original SAM | 0.6643   | 0.7808   |       |
 | [TrashCan 1.0](https://conservancy.umn.edu/handle/11299/214865) | Fine-tuned   | 0.7888   | 0.8738   | 5     |
 | [TrashCan 1.0](https://conservancy.umn.edu/handle/11299/214865) | Fine-tuned   | 0.8000   | 0.8795   | 14    |
-| [WGISD](https://github.com/thsant/wgisd)                        | Original SAM | 0.8536   | 0.9178\] |       |
+| [WGISD](https://github.com/thsant/wgisd)                        | Original SAM | 0.8536   | 0.9178   |       |
 | [WGISD](https://github.com/thsant/wgisd)                        | Fine-tuned   | 0.8732   | 0.9298   | 19    |
 
 <details>
