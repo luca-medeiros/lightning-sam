@@ -20,7 +20,7 @@ from utils import calc_iou
 torch.set_float32_matmul_precision('high')
 
 
-def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoader, epoch: int = 0):
+def validate(fabric: L.Fabric, model: Model, val_dataloader: DataLoader, epoch: int = 0):
     model.eval()
     ious = AverageMeter()
     f1_scores = AverageMeter()
@@ -57,7 +57,7 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoade
 def train_sam(
     cfg: Box,
     fabric: L.Fabric,
-    model: torch.nn.Module,
+    model: Model,
     optimizer: _FabricOptimizer,
     scheduler: _FabricOptimizer,
     train_dataloader: DataLoader,
