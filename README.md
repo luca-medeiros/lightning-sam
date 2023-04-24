@@ -32,7 +32,7 @@ Using bbox prompt, the table below shows the mask quality of the original and fi
 <summary>Comparison images</summary>
 <br>
 TrashCan 1.0
-GT | Fine-tuned SAM | Original SAM
+GT | 6 Epochs Fine-tuned SAM | Original SAM
 
 ![1](assets/1.png)
 ![2](assets/2.png)
