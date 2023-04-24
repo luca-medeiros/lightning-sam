@@ -29,6 +29,7 @@ class COCODataset(Dataset):
         image_info = self.coco.loadImgs(image_id)[0]
         image_path = os.path.join(self.root_dir, image_info['file_name'])
         image = cv2.imread(image_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
         ann_ids = self.coco.getAnnIds(imgIds=image_id)
         anns = self.coco.loadAnns(ann_ids)
