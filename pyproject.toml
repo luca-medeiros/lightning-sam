@@ -9,6 +9,9 @@ authors = [
   "Luca Medeiros <lucamedeiros@outlook.com>",
 ]
 license = "LICENSE"
+packages = [
+    { include = "lightning_sam" },
+]
 
 [tool.poetry.dependencies]
 python = "^3.8, <3.11"
