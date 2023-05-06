@@ -52,9 +52,9 @@ pip install .
 
 1. Prepare your custom COCO-format dataset. The dataset should include a JSON file with annotations and an images folder with corresponding images.
 
-1. Edit src/config.py with your dataset paths.
+1. Create a JSON file with your dataset paths (see `configs/coco2017.json`).
 
-1. Run src/train.py.
+1. Run `lightning_sam/train.py -c <path/to/your-json-config-file>`.
 
 ## Notes
 
