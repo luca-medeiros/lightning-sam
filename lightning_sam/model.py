@@ -4,6 +4,13 @@ from segment_anything import sam_model_registry
 from segment_anything import SamPredictor
 
 
+model_urls = {
+    'vit_h': 'https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth',
+    'vit_l': 'https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth',
+    'vit_b': 'https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth'
+}
+
+
 class Model(nn.Module):
 
     def __init__(self, cfg):
@@ -11,7 +18,18 @@ class Model(nn.Module):
         self.cfg = cfg
 
     def setup(self):
-        self.model = sam_model_registry[self.cfg.model.type](checkpoint=self.cfg.model.checkpoint)
+        if not "checkpoint" in self.cfg:
+            from utils import get_file
+            url = model_urls[self.cfg.model.type]
+            sam_checkpoint = get_file(url)
+        else:
+            sam_checkpoint = self.cfg.model.checkpoint
+        try:
+            self.model = sam_model_registry[self.cfg.model.type](checkpoint=sam_checkpoint)
+        except:
+            raise ValueError(f"Problem loading SAM please make sure you have the right model type: {sam_type} \
+                and a working checkpoint: {sam_checkpoint}. Recommend deleting the checkpoint and \
+                re-downloading it.")
         self.model.train()
         if self.cfg.model.freeze.image_encoder:
             for param in self.model.image_encoder.parameters():
