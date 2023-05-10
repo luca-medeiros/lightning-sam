@@ -157,7 +157,7 @@ def main(cfg: Box) -> None:
     val_data = fabric._setup_dataloader(val_data)
 
     optimizer, scheduler = configure_opt(cfg, model)
-    model, optimizer, scheduler = fabric.setup(model, optimizer, scheduler)
+    model, optimizer = fabric.setup(model, optimizer)
 
     train_sam(cfg, fabric, model, optimizer, scheduler, train_data, val_data)
     validate(fabric, model, val_data, epoch=0)
