@@ -1,12 +1,12 @@
 from box import Box
 
 config = {
-    "num_devices": 4,
-    "batch_size": 12,
-    "num_workers": 4,
+    "num_devices": 1,
+    "batch_size": 2,
+    "num_workers": 1,
     "num_epochs": 20,
     "eval_interval": 2,
-    "out_dir": "out/training",
+    "out_dir": "/home/au/lightning-sam/out/training",
     "opt": {
         "learning_rate": 8e-4,
         "weight_decay": 1e-4,
@@ -15,8 +15,8 @@ config = {
         "warmup_steps": 250,
     },
     "model": {
-        "type": 'vit_h',
-        "checkpoint": "sam_vit_h_4b8939.pth",
+        "type": 'vit_b',
+        "checkpoint": "/home/au/segment-anything/weights/sam_vit_b_01ec64.pth",
         "freeze": {
             "image_encoder": True,
             "prompt_encoder": True,
@@ -25,12 +25,12 @@ config = {
     },
     "dataset": {
         "train": {
-            "root_dir": "/coco/coco2017/train2017",
-            "annotation_file": "/coco/coco2017/annotations/instances_train2017.json"
+            "root_dir": "/media/data3/au/tasks/2023_05_05_sam_labelling/finetune_data/images",
+            "annotation_file": "/media/data3/au/tasks/2023_05_05_sam_labelling/finetune_data/truck_ann_2.json"
         },
         "val": {
-            "root_dir": "/coco/coco2017/val2017",
-            "annotation_file": "/coco/coco2017/annotations/instances_val2017.json"
+            "root_dir": "/media/data3/au/tasks/2023_05_05_sam_labelling/finetune_data/images",
+            "annotation_file": "/media/data3/au/tasks/2023_05_05_sam_labelling/finetune_data/truck_ann_2.json"
         }
     }
 }

@@ -109,6 +109,7 @@ def train_sam(
             dice_losses.update(loss_dice.item(), batch_size)
             iou_losses.update(loss_iou.item(), batch_size)
             total_losses.update(loss_total.item(), batch_size)
+            
 
             fabric.print(f'Epoch: [{epoch}][{iter+1}/{len(train_dataloader)}]'
                          f' | Time [{batch_time.val:.3f}s ({batch_time.avg:.3f}s)]'
@@ -116,7 +117,8 @@ def train_sam(
                          f' | Focal Loss [{focal_losses.val:.4f} ({focal_losses.avg:.4f})]'
                          f' | Dice Loss [{dice_losses.val:.4f} ({dice_losses.avg:.4f})]'
                          f' | IoU Loss [{iou_losses.val:.4f} ({iou_losses.avg:.4f})]'
-                         f' | Total Loss [{total_losses.val:.4f} ({total_losses.avg:.4f})]')
+                         f' | Total Loss [{total_losses.val:.4f} ({total_losses.avg:.4f})]'
+                         f' | LR [{scheduler.get_last_lr()[0]:.6f}]')
 
 
 def configure_opt(cfg: Box, model: Model):
@@ -138,8 +140,9 @@ def configure_opt(cfg: Box, model: Model):
 
 
 def main(cfg: Box) -> None:
-    fabric = L.Fabric(accelerator="auto",
-                      devices=cfg.num_devices,
+    fabric = L.Fabric(accelerator="cuda",
+                    #   devices=cfg.num_devices,
+                      devices=[0],
                       strategy="auto",
                       loggers=[TensorBoardLogger(cfg.out_dir, name="lightning-sam")])
     fabric.launch()

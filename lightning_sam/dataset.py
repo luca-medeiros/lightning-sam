@@ -10,6 +10,17 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 
 
+def plot_mask_on_img(img, mask):
+    # img: h,w,c
+    # masks: h,w
+    img = img.astype(np.int64, copy=True)
+    color = [255,0,0]
+    img[mask>=1] += np.array(color)
+    img[mask>0] //= 2
+    img = img.astype(np.uint8)
+    return img
+
+
 class COCODataset(Dataset):
 
     def __init__(self, root_dir, annotation_file, transform=None):
@@ -37,11 +48,20 @@ class COCODataset(Dataset):
         masks = []
 
         for ann in anns:
-            x, y, w, h = ann['bbox']
-            bboxes.append([x, y, x + w, y + h])
-            mask = self.coco.annToMask(ann)
+            if not ann['segmentation']:
+                mask = np.zeros(image.shape[:2], dtype=np.uint8)
+            else:
+                mask = self.coco.annToMask(ann)
+            mask_contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            mask_boxes = [cv2.boundingRect(cnt) for cnt in mask_contours]
+            mask_boxes = [[box[0], box[1], box[0] + box[2], box[1] + box[3]] for box in mask_boxes]
+            bboxes.append(mask_boxes)    
             masks.append(mask)
-
+        
+        # img = plot_mask_on_img(image, masks[0])
+        # img = cv2.rectangle(img, (bboxes[0][0][0], bboxes[0][0][1]), (bboxes[0][0][2], bboxes[0][0][3]), (0,255,0), 2)
+        # cv2.imwrite('test.png', img)
+        
         if self.transform:
             image, masks, bboxes = self.transform(image, masks, np.array(bboxes))
 
