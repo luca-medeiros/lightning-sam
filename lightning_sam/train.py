@@ -79,6 +79,9 @@ def train_sam(
         validated = False
 
         for iter, data in enumerate(train_dataloader):
+            if iter < 133:
+                fabric.print(f'Epoch: [{epoch}][{iter+1}/{len(train_dataloader)}: skip]')
+                continue
             if epoch > 1 and epoch % cfg.eval_interval == 0 and not validated:
                 validate(fabric, model, val_dataloader, epoch)
                 validated = True
@@ -167,4 +170,13 @@ def main(cfg: Box) -> None:
 
 
 if __name__ == "__main__":
+    import os
+    import glob
+
+    out_dir = '/home/mp/work/track_anything/segment_anything_tuning/lightning_sam/data/out/mask_pred'
+
+    files = glob.glob(f'{out_dir}/*')
+    for f in files:
+        os.remove(f)
+
     main(cfg)

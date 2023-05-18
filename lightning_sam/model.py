@@ -12,11 +12,12 @@ def plot_mask_on_img(img, mask):
     # masks: h,w
     img = img.astype(np.int64, copy=True)
     color = [255,0,0]
-    img[mask>=1] += np.array(color)
+    img[mask>0] += np.array(color)
     img[mask>0] //= 2
     img = img.astype(np.uint8)
     return img
 
+imgs_idx = 0
 
 class Model(nn.Module):
 
@@ -75,6 +76,22 @@ class Model(nn.Module):
             )
             pred_masks.append(masks.squeeze(1))
             ious.append(iou_predictions)
+
+            img = images[i].clone().cpu().permute(1,2,0).numpy() * 255
+            img = np.ascontiguousarray(img)
+
+            box_draw = box.clone().cpu().numpy().astype(int)
+            masks_draw = masks.clone().cpu().detach().numpy()
+            masks_draw = np.ascontiguousarray(masks_draw)
+
+            global imgs_idx
+
+            img = plot_mask_on_img(img, masks_draw[0][0])
+            img = cv2.rectangle(img, (box_draw[0][0], box_draw[0][1]), (box_draw[0][2], box_draw[0][3]), (0,255,0), 2)
+            out_dir = '/home/mp/work/track_anything/segment_anything_tuning/lightning_sam/data/out/mask_pred'
+            out_path = f'{out_dir}/{imgs_idx}.png'
+            imgs_idx += 1
+            cv2.imwrite(out_path, img)
         
         return pred_masks, ious
 

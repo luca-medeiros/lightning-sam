@@ -6,7 +6,7 @@ config = {
     "num_workers": 1,
     "num_epochs": 20,
     "eval_interval": 2,
-    "out_dir": "/home/au/lightning-sam/out/training",
+    "out_dir": "../out/training",
     "opt": {
         "learning_rate": 8e-4,
         "weight_decay": 1e-4,
@@ -15,8 +15,8 @@ config = {
         "warmup_steps": 250,
     },
     "model": {
-        "type": 'vit_b',
-        "checkpoint": "/home/au/segment-anything/weights/sam_vit_b_01ec64.pth",
+        "type": 'vit_l',
+        "checkpoint": "/home/mp/work/track_anything/chpts/sam_vit_l_0b3195.pth",
         "freeze": {
             "image_encoder": True,
             "prompt_encoder": True,
@@ -25,12 +25,12 @@ config = {
     },
     "dataset": {
         "train": {
-            "root_dir": "/media/data3/au/tasks/2023_05_05_sam_labelling/finetune_data/images",
-            "annotation_file": "/media/data3/au/tasks/2023_05_05_sam_labelling/finetune_data/truck_ann_2.json"
+            "img_dir": "/home/mp/work/track_anything/data/dataset_trucks_segmentation/train/img",
+            "mask_dir": "/home/mp/work/track_anything/data/dataset_trucks_segmentation/train/masks/truck"
         },
         "val": {
-            "root_dir": "/media/data3/au/tasks/2023_05_05_sam_labelling/finetune_data/images",
-            "annotation_file": "/media/data3/au/tasks/2023_05_05_sam_labelling/finetune_data/truck_ann_2.json"
+            "img_dir": "/home/mp/work/track_anything/data/dataset_trucks_segmentation/val/img",
+            "mask_dir": "/home/mp/work/track_anything/data/dataset_trucks_segmentation/val/masks/truck"
         }
     }
 }

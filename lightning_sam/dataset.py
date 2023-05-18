@@ -23,40 +23,49 @@ def plot_mask_on_img(img, mask):
 
 class COCODataset(Dataset):
 
-    def __init__(self, root_dir, annotation_file, transform=None):
-        self.root_dir = root_dir
+    def __init__(self, img_dir, mask_dir, transform=None):
+        self.img_dir = img_dir
+        self.mask_dir = mask_dir
         self.transform = transform
-        self.coco = COCO(annotation_file)
-        self.image_ids = list(self.coco.imgs.keys())
+        self.file_names = [os.path.splitext(file_name)[0] for file_name in os.listdir(self.img_dir)]
 
-        # Filter out image_ids without any annotations
-        self.image_ids = [image_id for image_id in self.image_ids if len(self.coco.getAnnIds(imgIds=image_id)) > 0]
+        # self.image_ids = list(self.coco.imgs.keys())
+
+        # # Filter out image_ids without any annotations
+        # self.image_ids = [image_id for image_id in self.image_ids if len(self.coco.getAnnIds(imgIds=image_id)) > 0]
 
     def __len__(self):
-        return len(self.image_ids)
+        return len(self.file_names)
 
     def __getitem__(self, idx):
-        image_id = self.image_ids[idx]
-        image_info = self.coco.loadImgs(image_id)[0]
-        image_path = os.path.join(self.root_dir, image_info['file_name'])
-        image = cv2.imread(image_path)
+        file_name = self.file_names[idx]
+        img_path = os.path.join(self.img_dir, f'{file_name}.jpg')
+        mask_path = os.path.join(self.mask_dir, f'{file_name}.png')
+        
+        image = cv2.imread(img_path)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        ann_ids = self.coco.getAnnIds(imgIds=image_id)
-        anns = self.coco.loadAnns(ann_ids)
-        bboxes = []
-        masks = []
+        mask_full = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
 
-        for ann in anns:
-            if not ann['segmentation']:
-                mask = np.zeros(image.shape[:2], dtype=np.uint8)
-            else:
-                mask = self.coco.annToMask(ann)
-            mask_contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            mask_boxes = [cv2.boundingRect(cnt) for cnt in mask_contours]
-            mask_boxes = [[box[0], box[1], box[0] + box[2], box[1] + box[3]] for box in mask_boxes]
-            bboxes.append(mask_boxes)    
-            masks.append(mask)
+        mask_contours, _ = cv2.findContours(mask_full, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        if not len(mask_contours):
+            bboxes = [[0, 0, image.shape[1], image.shape[0]]]
+            masks = [np.zeros(image.shape[:2], dtype = "uint8")]
+        else:
+            bboxes = [cv2.boundingRect(cnt) for cnt in mask_contours]
+            bboxes = [[box[0], box[1], box[0] + box[2], box[1] + box[3]] for box in bboxes]
+            masks = []
+
+            mask_contour_min_area = 100 
+            for mask_contour in mask_contours:
+                if cv2.contourArea(mask_contour) < mask_contour_min_area:
+                    continue
+
+                mask = np.zeros(image.shape[:2], dtype = "uint8")
+                cv2.drawContours(mask, [mask_contour], 0, 1, -1)
+                
+                masks.append(mask)
         
         # img = plot_mask_on_img(image, masks[0])
         # img = cv2.rectangle(img, (bboxes[0][0][0], bboxes[0][0][1]), (bboxes[0][0][2], bboxes[0][0][3]), (0,255,0), 2)
@@ -67,7 +76,9 @@ class COCODataset(Dataset):
 
         bboxes = np.stack(bboxes, axis=0)
         masks = np.stack(masks, axis=0)
-        return image, torch.tensor(bboxes), torch.tensor(masks).float()
+        bboxes = torch.tensor(bboxes)
+        masks = torch.tensor(masks).float()
+        return image, bboxes, masks
 
 
 def collate_fn(batch):
@@ -109,11 +120,12 @@ class ResizeAndPad:
 
 def load_datasets(cfg, img_size):
     transform = ResizeAndPad(img_size)
-    train = COCODataset(root_dir=cfg.dataset.train.root_dir,
-                        annotation_file=cfg.dataset.train.annotation_file,
+    
+    train = COCODataset(img_dir=cfg.dataset.train.img_dir,
+                        mask_dir=cfg.dataset.train.mask_dir,
                         transform=transform)
-    val = COCODataset(root_dir=cfg.dataset.val.root_dir,
-                      annotation_file=cfg.dataset.val.annotation_file,
+    val = COCODataset(img_dir=cfg.dataset.val.img_dir,
+                      mask_dir=cfg.dataset.val.mask_dir,
                       transform=transform)
     train_dataloader = DataLoader(train,
                                   batch_size=cfg.batch_size,
