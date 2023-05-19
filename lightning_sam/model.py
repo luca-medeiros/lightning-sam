@@ -7,17 +7,6 @@ import cv2
 from  torchvision.transforms import Resize
 import torch
 
-def plot_mask_on_img(img, mask):
-    # img: h,w,c
-    # masks: h,w
-    img = img.astype(np.int64, copy=True)
-    color = [255,0,0]
-    img[mask>0] += np.array(color)
-    img[mask>0] //= 2
-    img = img.astype(np.uint8)
-    return img
-
-imgs_idx = 0
 
 class Model(nn.Module):
 
@@ -38,16 +27,32 @@ class Model(nn.Module):
             for param in self.model.mask_decoder.parameters():
                 param.requires_grad = False
 
-    def forward(self, images, bboxes):
+    def forward(self, images, bboxes, embedings):
         _, _, H, W = images.shape
-        
-        with torch.no_grad():
-            image_embeddings = self.model.image_encoder(images)
+        idxs = []
+        images_do_emb = []
+        for i, (image, embeding) in enumerate(zip(images, embedings)):
+            if not isinstance(embeding, torch.Tensor):
+                idxs.append(i)
+                images_do_emb.append(image)
+
+        if images_do_emb:
+            images_do_emb = torch.stack(images_do_emb)
+
+            with torch.no_grad():
+                done_embeddings = self.model.image_encoder(images_do_emb)
             torch.cuda.empty_cache()
-        torch.cuda.empty_cache()
+            embedings = list(embedings)
+
+            for idx, embeding in zip(idxs, done_embeddings):
+                embeding_cache = embeding.detach().cpu().numpy()
+                embeding_cache = np.ascontiguousarray(embeding_cache)
+                np.save(embedings[idx], embeding_cache)
+                embedings[idx] = embeding
+
         pred_masks = []
         ious = []
-        for i, (embedding, box) in enumerate(zip(image_embeddings, bboxes)):
+        for i, (embedding, box) in enumerate(zip(embedings, bboxes)):
             
             with torch.no_grad():
                 sparse_embeddings, dense_embeddings = self.model.prompt_encoder(
@@ -65,9 +70,7 @@ class Model(nn.Module):
                 multimask_output=False,
             )
             torch.cuda.empty_cache()
-            low_res_masks = low_res_masks.max(0)[0][None, ...]
-            iou_predictions = iou_predictions.mean(0)[None, ...]
-            
+
             masks = F.interpolate(
                 low_res_masks,
                 (H, W),
@@ -76,22 +79,6 @@ class Model(nn.Module):
             )
             pred_masks.append(masks.squeeze(1))
             ious.append(iou_predictions)
-
-            img = images[i].clone().cpu().permute(1,2,0).numpy() * 255
-            img = np.ascontiguousarray(img)
-
-            box_draw = box.clone().cpu().numpy().astype(int)
-            masks_draw = masks.clone().cpu().detach().numpy()
-            masks_draw = np.ascontiguousarray(masks_draw)
-
-            global imgs_idx
-
-            img = plot_mask_on_img(img, masks_draw[0][0])
-            img = cv2.rectangle(img, (box_draw[0][0], box_draw[0][1]), (box_draw[0][2], box_draw[0][3]), (0,255,0), 2)
-            out_dir = '/home/mp/work/track_anything/segment_anything_tuning/lightning_sam/data/out/mask_pred'
-            out_path = f'{out_dir}/{imgs_idx}.png'
-            imgs_idx += 1
-            cv2.imwrite(out_path, img)
         
         return pred_masks, ious
 

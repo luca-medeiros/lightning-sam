@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -10,17 +11,6 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 
 
-def plot_mask_on_img(img, mask):
-    # img: h,w,c
-    # masks: h,w
-    img = img.astype(np.int64, copy=True)
-    color = [255,0,0]
-    img[mask>=1] += np.array(color)
-    img[mask>0] //= 2
-    img = img.astype(np.uint8)
-    return img
-
-
 class COCODataset(Dataset):
 
     def __init__(self, img_dir, mask_dir, transform=None):
@@ -28,11 +18,7 @@ class COCODataset(Dataset):
         self.mask_dir = mask_dir
         self.transform = transform
         self.file_names = [os.path.splitext(file_name)[0] for file_name in os.listdir(self.img_dir)]
-
-        # self.image_ids = list(self.coco.imgs.keys())
-
-        # # Filter out image_ids without any annotations
-        # self.image_ids = [image_id for image_id in self.image_ids if len(self.coco.getAnnIds(imgIds=image_id)) > 0]
+        self.cache_path = Path('/home/mp/work/track_anything/.cache_dataset')
 
     def __len__(self):
         return len(self.file_names)
@@ -53,38 +39,40 @@ class COCODataset(Dataset):
             bboxes = [[0, 0, image.shape[1], image.shape[0]]]
             masks = [np.zeros(image.shape[:2], dtype = "uint8")]
         else:
-            bboxes = [cv2.boundingRect(cnt) for cnt in mask_contours]
-            bboxes = [[box[0], box[1], box[0] + box[2], box[1] + box[3]] for box in bboxes]
+            bboxes = []
             masks = []
 
-            mask_contour_min_area = 100 
+            mask_contour_min_area = 100
             for mask_contour in mask_contours:
                 if cv2.contourArea(mask_contour) < mask_contour_min_area:
                     continue
+                bboxes.append(cv2.boundingRect(mask_contour))
 
                 mask = np.zeros(image.shape[:2], dtype = "uint8")
                 cv2.drawContours(mask, [mask_contour], 0, 1, -1)
-                
                 masks.append(mask)
-        
-        # img = plot_mask_on_img(image, masks[0])
-        # img = cv2.rectangle(img, (bboxes[0][0][0], bboxes[0][0][1]), (bboxes[0][0][2], bboxes[0][0][3]), (0,255,0), 2)
-        # cv2.imwrite('test.png', img)
-        
+
+            bboxes = [[box[0], box[1], box[0] + box[2], box[1] + box[3]] for box in bboxes]
+
         if self.transform:
             image, masks, bboxes = self.transform(image, masks, np.array(bboxes))
+        
+        embeding = self.cache_path / f'{file_name}.npy'
+        if embeding.is_file():
+            embeding = np.load(embeding)
+            embeding = torch.tensor(embeding)
 
         bboxes = np.stack(bboxes, axis=0)
         masks = np.stack(masks, axis=0)
         bboxes = torch.tensor(bboxes)
         masks = torch.tensor(masks).float()
-        return image, bboxes, masks
+        return image, bboxes, masks, embeding
 
 
 def collate_fn(batch):
-    images, bboxes, masks = zip(*batch)
+    images, bboxes, masks, embedings = zip(*batch)
     images = torch.stack(images)
-    return images, bboxes, masks
+    return images, bboxes, masks, embedings
 
 
 class ResizeAndPad:
