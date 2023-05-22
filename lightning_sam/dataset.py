@@ -9,16 +9,16 @@ from pycocotools.coco import COCO
 from segment_anything.utils.transforms import ResizeLongestSide
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
+from config import cfg
 
-
-class COCODataset(Dataset):
+class SAMMasks2BoxesDataset(Dataset):
 
     def __init__(self, img_dir, mask_dir, transform=None):
         self.img_dir = img_dir
         self.mask_dir = mask_dir
         self.transform = transform
         self.file_names = [os.path.splitext(file_name)[0] for file_name in os.listdir(self.img_dir)]
-        self.cache_path = Path('/home/mp/work/track_anything/.cache_dataset')
+        self.cache_path = Path(cfg.dataset.cache_path)
 
     def __len__(self):
         return len(self.file_names)
@@ -58,7 +58,7 @@ class COCODataset(Dataset):
             image, masks, bboxes = self.transform(image, masks, np.array(bboxes))
         
         embeding = self.cache_path / f'{file_name}.npy'
-        if embeding.is_file():
+        if embeding.is_file() or embeding.exists():
             embeding = np.load(embeding)
             embeding = torch.tensor(embeding)
 
@@ -109,10 +109,10 @@ class ResizeAndPad:
 def load_datasets(cfg, img_size):
     transform = ResizeAndPad(img_size)
     
-    train = COCODataset(img_dir=cfg.dataset.train.img_dir,
+    train = SAMMasks2BoxesDataset(img_dir=cfg.dataset.train.img_dir,
                         mask_dir=cfg.dataset.train.mask_dir,
                         transform=transform)
-    val = COCODataset(img_dir=cfg.dataset.val.img_dir,
+    val = SAMMasks2BoxesDataset(img_dir=cfg.dataset.val.img_dir,
                       mask_dir=cfg.dataset.val.mask_dir,
                       transform=transform)
     train_dataloader = DataLoader(train,

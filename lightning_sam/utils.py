@@ -3,7 +3,7 @@ import os
 import cv2
 import torch
 from box import Box
-from dataset import COCODataset
+from dataset import SAMMasks2BoxesDataset
 from model import Model
 from torchvision.utils import draw_bounding_boxes
 from torchvision.utils import draw_segmentation_masks
@@ -54,7 +54,7 @@ def visualize(cfg: Box):
     model.setup()
     model.eval()
     model.cuda()
-    dataset = COCODataset(root_dir=cfg.dataset.val.root_dir,
+    dataset = SAMMasks2BoxesDataset(root_dir=cfg.dataset.val.root_dir,
                           annotation_file=cfg.dataset.val.annotation_file,
                           transform=None)
     predictor = model.get_predictor()

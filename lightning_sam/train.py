@@ -5,7 +5,7 @@ import shutil
 import time
 from datetime import datetime
 from tqdm import tqdm
-
+from pathlib import Path
 import lightning as L
 import segmentation_models_pytorch as smp
 import torch
@@ -21,6 +21,9 @@ from model import Model
 from torch.utils.data import DataLoader
 from utils import AverageMeter
 from utils import calc_iou
+from typing import Tuple
+
+import neptune
 
 torch.set_float32_matmul_precision('high')
 
@@ -73,7 +76,7 @@ def plot_mask_on_img(img, mask):
     return img
 
 
-def validate(fabric: L.Fabric, model: Model, val_dataloader: DataLoader, epoch: int = 0, logger=None, save_checkpoint=False, visualise_path=''):
+def validate(fabric: L.Fabric, model: Model, val_dataloader: DataLoader, epoch: int = 0, logger=None, save_checkpoint=False, visualise_path='') -> Tuple[float, float]:
     def val_log(logger, msg, once=False):
         if isinstance(logger, Logger):
             if once:
@@ -121,6 +124,7 @@ def validate(fabric: L.Fabric, model: Model, val_dataloader: DataLoader, epoch: 
                         f'Mean IoU: [{ious.avg:.4f}]; '
                         f'Mean F1: [{f1_scores.avg:.4f}]'
             )
+                
             if visualise_path:
                 for img, pred_masks, bbox in zip(images, pred_masks, bboxes):
                     img = np.ascontiguousarray((img.detach()*255).permute(1,2,0).cpu().numpy())
@@ -150,6 +154,8 @@ def validate(fabric: L.Fabric, model: Model, val_dataloader: DataLoader, epoch: 
         if fabric.global_rank == 0:
             torch.save(state_dict, os.path.join(cfg.out_dir, f"epoch-{epoch:06d}-f1{f1_scores.avg:.2f}-ckpt.pth"))
     model.train()
+    
+    return ious.avg, f1_scores.avg
 
 
 def train_sam(
@@ -163,9 +169,18 @@ def train_sam(
 ):
     """The SAM training loop."""
 
+    run = neptune.init_run(
+        project="alex-uv2/segment-anything",
+        api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI1MGQ0NzkzZS1jNGFiLTRmYjctOTg3Yi03NmEwZWE4ZGIwNzYifQ==",
+    )
+    
+    run['cfg'] = (vars(cfg))
+    
+    
     focal_loss = FocalLoss()
     dice_loss = DiceLoss()
     logger = Logger(cfg.log_file, fabric)
+    Path(cfg.dataset.cache_path).mkdir(parents=True, exist_ok=True)
 
     for epoch in range(1, cfg.num_epochs):
         logger.log_once(f'Start traing epoch #{epoch}')
@@ -177,7 +192,6 @@ def train_sam(
         total_losses = AverageMeter()
         end = time.time()
         bach_time_start = time.time()
-
 
         for iter, data in enumerate(train_dataloader):
             torch.cuda.empty_cache()
@@ -220,6 +234,13 @@ def train_sam(
                         f' | Total Loss [{total_losses.val:.4f} ({total_losses.avg:.4f})]'\
                         f' | LR [{scheduler.get_last_lr()[0]:.6f}]')
 
+            
+        run['train_total_loss'].log(total_losses.avg)
+        run['train_dice_loss'].log(dice_losses.avg)
+        run['train_focal_loss'].log(focal_losses.avg)
+        run['train_iou_loss'].log(iou_losses.avg)
+        run['train_lr'].log(scheduler.get_last_lr()[0])
+            
         epoch_time = time.time() - bach_time_start
         logger.log_once(f'\nTrain end epoch: [{epoch}]'\
                         f' | Full time: [{epoch_time:.3f}s]'
@@ -232,7 +253,11 @@ def train_sam(
                         + '#'*120 + '\n')
         if epoch > 0 and epoch % cfg.eval_interval == 0:
             vis_path = os.path.join(cfg.visualise_path, f'epoch_{epoch}')
-            validate(fabric, model, val_dataloader, epoch, visualise_path=vis_path, logger=logger, save_checkpoint=False)
+            val_epoch_iou, val_epoch_f1 = validate(fabric, model, val_dataloader, epoch, visualise_path=vis_path, logger=logger, save_checkpoint=True)
+            
+            run['val_iou'].log(val_epoch_iou)
+            run['val_f1'].log(val_epoch_f1)
+    run.stop()
 
 def configure_opt(cfg: Box, model: Model):
 
