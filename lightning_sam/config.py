@@ -7,9 +7,7 @@ config = {
     "num_epochs": 100,
     "eval_interval": 2,
     "log_n_steps": 10,
-    "out_dir": "/home/mp/work/track_anything/segment_anything_tuning/out/checkpoints",
-    "log_file": "/home/mp/work/track_anything/segment_anything_tuning/out/log_train.txt",
-    "visualise_path": "/home/mp/work/track_anything/segment_anything_tuning/out/vis_val",
+    "log_file": "/media/data3/au/tasks/2023_05_05_sam_labelling/out/log_train.txt",
     "opt": {
         "learning_rate": 3e-4,
         "weight_decay": 1e-4,

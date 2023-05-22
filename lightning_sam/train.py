@@ -43,7 +43,6 @@ class Logger:
         with open(self.log_file, 'a') as f:
             f.write(msg+'\n')
 
-
     def log_once(self, msg):
         if self.log_onece:
             self.log(msg)
@@ -76,7 +75,7 @@ def plot_mask_on_img(img, mask):
     return img
 
 
-def validate(fabric: L.Fabric, model: Model, val_dataloader: DataLoader, epoch: int = 0, logger=None, save_checkpoint=False, visualise_path='') -> Tuple[float, float]:
+def validate(fabric: L.Fabric, model: Model, val_dataloader: DataLoader, epoch: int = 0, logger=None, save_checkpoint=False) -> Tuple[float, float]:
     def val_log(logger, msg, once=False):
         if isinstance(logger, Logger):
             if once:
@@ -92,13 +91,6 @@ def validate(fabric: L.Fabric, model: Model, val_dataloader: DataLoader, epoch: 
     model.eval()
     ious = AverageMeter()
     f1_scores = AverageMeter()
-    if visualise_path:
-        val_log(logger, f'visualazing in folder: {visualise_path}')
-        if fabric.global_rank == 0:
-            shutil.rmtree(visualise_path, ignore_errors=True)
-            os.makedirs(visualise_path)
-        cntr = 0
-    
     time_begin = time.time()
     with torch.no_grad():
         for iter, data in enumerate(val_dataloader):
@@ -124,19 +116,6 @@ def validate(fabric: L.Fabric, model: Model, val_dataloader: DataLoader, epoch: 
                         f'Mean IoU: [{ious.avg:.4f}]; '
                         f'Mean F1: [{f1_scores.avg:.4f}]'
             )
-                
-            if visualise_path:
-                for img, pred_masks, bbox in zip(images, pred_masks, bboxes):
-                    img = np.ascontiguousarray((img.detach()*255).permute(1,2,0).cpu().numpy())
-                    pred_masks = np.ascontiguousarray(pred_masks[0].detach().cpu().numpy()) 
-                    bbox = np.ascontiguousarray(bbox.detach().cpu().numpy()).astype(int)
-                    img = plot_mask_on_img(img, pred_masks)
-                    
-                    for bb in bbox:
-                        img = cv2.rectangle(img, (bb[0], bb[1]), (bb[2], bb[3]), (0, 255, 0), 2)
-                    img_path = os.path.join(visualise_path, f'{fabric.global_rank}_{cntr}.png')
-                    cv2.imwrite(img_path, img)
-                    cntr += 1
 
     full_time = time.time()-time_begin
     val_log(logger, 
@@ -176,7 +155,6 @@ def train_sam(
     
     run['cfg'] = (vars(cfg))
     
-    
     focal_loss = FocalLoss()
     dice_loss = DiceLoss()
     logger = Logger(cfg.log_file, fabric)
@@ -191,7 +169,6 @@ def train_sam(
         iou_losses = AverageMeter()
         total_losses = AverageMeter()
         end = time.time()
-        bach_time_start = time.time()
 
         for iter, data in enumerate(train_dataloader):
             torch.cuda.empty_cache()
@@ -241,19 +218,8 @@ def train_sam(
         run['train_iou_loss'].log(iou_losses.avg)
         run['train_lr'].log(scheduler.get_last_lr()[0])
             
-        epoch_time = time.time() - bach_time_start
-        logger.log_once(f'\nTrain end epoch: [{epoch}]'\
-                        f' | Full time: [{epoch_time:.3f}s]'
-                        f' | Time [({batch_time.avg:.3f}s]'\
-                        f' | Data [({data_time.avg:.3f}s]'\
-                        f' | Focal Loss [{focal_losses.avg:.4f}]'\
-                        f' | Dice Loss [{dice_losses.avg:.4f}]'\
-                        f' | IoU Loss [{iou_losses.avg:.4f}]'\
-                        f' | Total Loss [{total_losses.avg:.4f}]\n'
-                        + '#'*120 + '\n')
         if epoch > 0 and epoch % cfg.eval_interval == 0:
-            vis_path = os.path.join(cfg.visualise_path, f'epoch_{epoch}')
-            val_epoch_iou, val_epoch_f1 = validate(fabric, model, val_dataloader, epoch, visualise_path=vis_path, logger=logger, save_checkpoint=True)
+            val_epoch_iou, val_epoch_f1 = validate(fabric, model, val_dataloader, epoch, logger=logger, save_checkpoint=True)
             
             run['val_iou'].log(val_epoch_iou)
             run['val_f1'].log(val_epoch_f1)
