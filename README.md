@@ -71,27 +71,27 @@ python inference.py
 
 
 ## Results
-Trained on tracks
+Trained on [dataset](https://github.com/everguard-inc/dataset_trucks_segmentation/tree/zekelman_ontario_tents) of tracks (~3500 imgs - train set, ~700 imgs - test set). After 20-th epoch metrics are mainly stable. Intresting is tha it dows not overfit after huge amoun of pochs (100).
 
 | Class  |    IoU  | dice    | Epoch |
 | ------ | ------- | ------- | ----- |
-| crane  |         | 0.9166  |  0    |
-| tent   |         |         |  0    |
+| crane  | 0.3520  | 0.2905  |  0    |
+| tent   | 0.2966  | 0.2663  |  0    |
 | truck  | 0.6643  | 0.7808  |  0    |
-| net    |         |         |  0    |
+| net    | 0.4888  | 0.4572  |  0    |
 | total  | 0.6000  | 0.5659  |  0    |
 | ------ | ------- | ------- | ----- |
-| crane  |         | 0.9166  |  10   |
-| tent   |         |         |  10   |
-| truck  | 0.6643  | 0.7808  |  10   |
-| net    |         |         |  10   |
+| crane  | 0.4848  | 0.4724  |  10   |
+| tent   | 0.7539  | 0.7163  |  10   |
+| truck  | 0.9412  | 0.9166  |  10   |
+| net    | 0.2203  | 0.1581  |  10   |
 | total  | 0.6000  | 0.5659  |  10   |
 | ------ | ------- | ------- | ----- |
-| crane  |         | 0.9166  |  20   |
-| tent   |         |         |  20   |
-| truck  | 0.6643  | 0.7808  |  20   |
-| net    |         |         |  20   |
-| total  | 0.6000  | 0.5659  |  20   |
+| crane  | 0.4978  | 0.4873  |  20   |
+| tent   | 0.8469  | 0.8120  |  20   |
+| truck  | 0.9586  | 0.9428  |  20   |
+| net    | 0.1576  | 0.1181  |  20   |
+| total  | 0.6152  | 0.5900  |  20   |
 
 
 # TODO
