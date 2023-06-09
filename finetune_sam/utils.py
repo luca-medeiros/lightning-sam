@@ -1,10 +1,12 @@
+
+
 import os
 
 import cv2
 import torch
 from box import Box
 from dataset import SAMMasks2BoxesDataset
-from model import Model
+from model import SAM_finetuner
 from torchvision.utils import draw_bounding_boxes
 from torchvision.utils import draw_segmentation_masks
 from tqdm import tqdm
@@ -50,7 +52,7 @@ def draw_image(image, masks, boxes, labels, alpha=0.4):
 
 
 def visualize(cfg: Box):
-    model = Model(cfg)
+    model = SAM_finetuner(cfg)
     model.setup()
     model.eval()
     model.cuda()
@@ -84,6 +86,9 @@ def visualize(cfg: Box):
         image_output = draw_image(image, masks.squeeze(1), boxes=None, labels=None)
         cv2.imwrite(image_output_path, image_output)
 
+###################################################################
+# Not tested
+###################################################################
 
 if __name__ == "__main__":
     from config import cfg

@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 import os
 import shutil
-import time
+from time import time
 from datetime import datetime
 from tqdm import tqdm
 from pathlib import Path
@@ -17,7 +17,7 @@ from lightning.fabric.fabric import _FabricOptimizer
 from lightning.fabric.loggers import TensorBoardLogger
 from losses import DiceLoss
 from losses import FocalLoss
-from model import Model
+from model import SAM_finetuner
 from torch.utils.data import DataLoader
 from utils import AverageMeter
 from utils import calc_iou
@@ -26,9 +26,6 @@ from typing import Tuple
 import neptune
 
 torch.set_float32_matmul_precision('high')
-
-def num_dig(num):
-    return np.ceil(np.log10(num)).astype(int)
 
 class Logger:
     def __init__(self, log_file, fabric):
@@ -46,9 +43,13 @@ class Logger:
     def log_once(self, msg):
         if self.log_onece:
             self.log(msg)
+    
+    @staticmethod
+    def num_dig(num):
+        return np.ceil(np.log10(num)).astype(int)
             
 
-def configure_opt(cfg: Box, model: Model):
+def configure_opt(cfg: Box, model: SAM_finetuner):
     def lr_lambda(step):
         if step < cfg.opt.warmup_steps:
             return step / cfg.opt.warmup_steps
@@ -67,15 +68,16 @@ def configure_opt(cfg: Box, model: Model):
 def plot_mask_on_img(img, mask):
     # img: h,w,c
     # masks: h,w
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     img = img.astype(np.int64, copy=True)
     color = [255,0,0]
-    img[mask>=1] += np.array(color)
-    img[mask>0] //= 2
+    img[mask>0.5] += np.array(color)
+    img[mask>0.5] //= 2
     img = img.astype(np.uint8)
     return img
 
 
-def validate(fabric: L.Fabric, model: Model, val_dataloader: DataLoader, epoch: int = 0, logger=None, save_checkpoint=False) -> Tuple[float, float]:
+def validate(fabric: L.Fabric, model: SAM_finetuner, val_dataloader: DataLoader, epoch: int = 0, logger=None, save_checkpoint=False) -> Tuple[float, float]:
     def val_log(logger, msg, once=False):
         if isinstance(logger, Logger):
             if once:
@@ -85,18 +87,20 @@ def validate(fabric: L.Fabric, model: Model, val_dataloader: DataLoader, epoch: 
         elif not once or fabric.global_rank==0:
             print(msg)
 
-    
     val_log(logger, f'Start validation after epoch #{epoch}', once = True)
 
     model.eval()
     ious = AverageMeter()
     f1_scores = AverageMeter()
-    time_begin = time.time()
+    time_begin = time()
+    vis_cntr = 0
+    start = time()
     with torch.no_grad():
         for iter, data in enumerate(val_dataloader):
 
             images, bboxes, gt_masks, embedings = data
-            num_images = images.size(0)
+            num_images = images.shape[0]
+            gt_masks = [torch.FloatTensor(gt_mask).to(fabric.device) for gt_mask in gt_masks]
             pred_masks, _ = model(images, bboxes, embedings)
             for pred_mask, gt_mask in zip(pred_masks, gt_masks):
                 batch_stats = smp.metrics.get_stats(
@@ -110,14 +114,40 @@ def validate(fabric: L.Fabric, model: Model, val_dataloader: DataLoader, epoch: 
                 ious.update(batch_iou, num_images)
                 f1_scores.update(batch_f1, num_images)
             size = len(val_dataloader)
-            if iter % cfg.log_n_steps == 0:
+            if iter > 0 and iter % cfg.log_n_steps == 0:
                 val_log(logger,
-                        f'Val: [{epoch}] - [{iter:>{num_dig(size)}}/{size}]: '
+                        f'Val: [{epoch}] - [{iter:>{Logger.num_dig(size)}}/{size}]: '
+                        f'Time [{time() - start:2.3f}s]; '
                         f'Mean IoU: [{ious.avg:.4f}]; '
                         f'Mean F1: [{f1_scores.avg:.4f}]'
-            )
+                )
+                start = time()
+            visualise_path = Path(cfg.out_dir) / 'vis_epochs' / f'ep_{epoch}'
+            visualise_path.mkdir(parents=True, exist_ok=True)
 
-    full_time = time.time()-time_begin
+            for img, pred_masks, bbox in zip(images, pred_masks, bboxes):
+                                    
+                # img = np.ascontiguousarray(img)
+                pred_masks = np.ascontiguousarray(pred_masks[0].detach().cpu().numpy()) 
+                # bbox = np.ascontiguousarray(bbox.detach().cpu().numpy()).astype(int)
+                img = plot_mask_on_img(img, pred_masks)
+                
+                for bb in bbox:
+                    img = cv2.rectangle(img, (bb[0], bb[1]), (bb[2], bb[3]), (0, 255, 0), 2)
+                img_path = str((visualise_path / f'{vis_cntr}.png').absolute())
+                cv2.imwrite(img_path, img)
+                vis_cntr += 1
+
+    if save_checkpoint:
+        chpt_path = Path(f'{cfg.out_dir}/chpt')
+        chpt_path.mkdir(parents=True, exist_ok=True)
+        chpt_path = str(chpt_path.absolute())
+        val_log(logger, f"Saving checkpoint to {chpt_path}", once=True)
+        state_dict = model.model.state_dict()
+        if fabric.global_rank == 0:
+            torch.save(state_dict, os.path.join(chpt_path, f"ckpt-ep-{epoch:04d}.pth"))
+    
+    full_time = time()-time_begin
     val_log(logger, 
         f'Validation [{epoch}]:'
         f'  Full time: {full_time}'
@@ -127,20 +157,16 @@ def validate(fabric: L.Fabric, model: Model, val_dataloader: DataLoader, epoch: 
         once=True
     )
 
-    if save_checkpoint:
-        val_log(logger, f"Saving checkpoint to {cfg.out_dir}", once=True)
-        state_dict = model.model.state_dict()
-        if fabric.global_rank == 0:
-            torch.save(state_dict, os.path.join(cfg.out_dir, f"epoch-{epoch:06d}-f1{f1_scores.avg:.2f}-ckpt.pth"))
     model.train()
     
     return ious.avg, f1_scores.avg
 
+# cntr = 0
 
 def train_sam(
     cfg: Box,
     fabric: L.Fabric,
-    model: Model,
+    model: SAM_finetuner,
     optimizer: _FabricOptimizer,
     scheduler: _FabricOptimizer,
     train_dataloader: DataLoader,
@@ -157,10 +183,12 @@ def train_sam(
     
     focal_loss = FocalLoss()
     dice_loss = DiceLoss()
-    logger = Logger(cfg.log_file, fabric)
+    logger = Logger(os.path.join(cfg.out_dir, cfg.log_file), fabric)
+
+    Path(cfg.out_dir).mkdir(parents=True, exist_ok=True)
     Path(cfg.dataset.cache_path).mkdir(parents=True, exist_ok=True)
 
-    for epoch in range(1, cfg.num_epochs):
+    for epoch in range(1, cfg.num_epochs+1):
         logger.log_once(f'Start traing epoch #{epoch}')
         batch_time = AverageMeter()
         data_time = AverageMeter()
@@ -168,15 +196,17 @@ def train_sam(
         dice_losses = AverageMeter()
         iou_losses = AverageMeter()
         total_losses = AverageMeter()
-        end = time.time()
+        end = time()
 
         for iter, data in enumerate(train_dataloader):
-            torch.cuda.empty_cache()
-
-            data_time.update(time.time() - end)
+            # break
+            data_time.update(time() - end)
             images, bboxes, gt_masks, embedings = data
-            batch_size = images.size(0)
+            
+            batch_size = images.shape[0]
+            gt_masks = [torch.FloatTensor(gt_mask).to(fabric.device) for gt_mask in gt_masks]
             pred_masks, iou_predictions = model(images, bboxes, embedings)
+            
             num_masks = sum(len(pred_mask) for pred_mask in pred_masks)
             loss_focal = torch.tensor(0., device=fabric.device)
             loss_dice = torch.tensor(0., device=fabric.device)
@@ -192,17 +222,17 @@ def train_sam(
             fabric.backward(loss_total)
             optimizer.step()
             scheduler.step()
-            batch_time.update(time.time() - end)
-            end = time.time()
+            batch_time.update(time() - end)
+            end = time()
 
             focal_losses.update(loss_focal.item(), batch_size)
             dice_losses.update(loss_dice.item(), batch_size)
             iou_losses.update(loss_iou.item(), batch_size)
             total_losses.update(loss_total.item(), batch_size)
-
-            size = len(train_dataloader)
-            if iter % cfg.log_n_steps == 0:
-                logger.log(f'Epoch: [{epoch}][{iter+1:>{num_dig(size)}}/{size}]'\
+            
+            if iter > 0 and iter % cfg.log_n_steps == 0:
+                size = len(train_dataloader)
+                logger.log(f'Epoch: [{epoch}][{iter+1:>{Logger.num_dig(size)}}/{size}]'\
                         f' | Time [{batch_time.val:.3f}s ({batch_time.avg:.3f}s)]'\
                         f' | Data [{data_time.val:.3f}s ({data_time.avg:.3f}s)]'\
                         f' | Focal Loss [{focal_losses.val:.4f} ({focal_losses.avg:.4f})]'\
@@ -225,7 +255,7 @@ def train_sam(
             run['val_f1'].log(val_epoch_f1)
     run.stop()
 
-def configure_opt(cfg: Box, model: Model):
+def configure_opt(cfg: Box, model: SAM_finetuner):
 
     def lr_lambda(step):
         if step < cfg.opt.warmup_steps:
@@ -255,10 +285,9 @@ def main(cfg: Box) -> None:
         os.makedirs(cfg.out_dir, exist_ok=True)
 
     with fabric.device:
-        model = Model(cfg)
-        model.setup()
+        model = SAM_finetuner(cfg)
 
-    train_data, val_data = load_datasets(cfg, model.model.image_encoder.img_size)
+    train_data, val_data = load_datasets(cfg)
     train_data = fabric._setup_dataloader(train_data)
     val_data = fabric._setup_dataloader(val_data)
 

@@ -1,13 +1,14 @@
 from box import Box
 
 config = {
-    "devices": [2],
+    "devices": [0],
     "batch_size": 2,
     "num_workers": 1,
-    "num_epochs": 100,
+    "num_epochs": 50,
     "eval_interval": 2,
     "log_n_steps": 10,
-    "log_file": "/media/data3/au/tasks/2023_05_05_sam_labelling/out/log_train.txt",
+    "out_dir": "/home/mp/work/track_anything/data/train_h/",
+    "log_file": "log_train.txt",
     "opt": {
         "learning_rate": 3e-4,
         "weight_decay": 1e-4,
@@ -16,24 +17,18 @@ config = {
         "warmup_steps": 2500,
     },
     "model": {
+        # type and checkpoint must be of the same size of the model
         "type": 'vit_h',
         "checkpoint": "/home/au/segment-anything/weights/sam_vit_h_4b8939.pth",
-        # "checkpoint": "/home/mp/work/track_anything/chpts/sam_vit_l_0b3195.pth",
+        # "checkpoint": "/home/mp/work/track_anything/data/train_h/chpt/ckpt-ep-0020.pth",
         "freeze": {
             "image_encoder": True,
             "prompt_encoder": True,
             "mask_decoder": False,
         },
     },
+    "generate_random_for_empty": True,
     "dataset": {
-        # "train": {
-        #     "img_dir": "/media/data3/au/tasks/2023_05_05_sam_labelling/finetune_data/images",
-        #     "mask_dir": "/media/data3/au/tasks/2023_05_05_sam_labelling/finetune_data/masks/truck"
-        # },
-        # "val": {
-        #     "img_dir": "/media/data3/au/tasks/2023_05_05_sam_labelling/finetune_data/images",
-        #     "mask_dir": "/media/data3/au/tasks/2023_05_05_sam_labelling/finetune_data/masks/truck"
-        # }
         "train": {
             "img_dir": "/home/mp/work/track_anything/data/dataset_trucks_segmentation/train/img",
             "mask_dir": "/home/mp/work/track_anything/data/dataset_trucks_segmentation/train/masks/truck"
@@ -41,7 +36,8 @@ config = {
         "val": {
             "img_dir": "/home/mp/work/track_anything/data/dataset_trucks_segmentation/val/img",
             "mask_dir": "/home/mp/work/track_anything/data/dataset_trucks_segmentation/val/masks/truck"
-        }
+        },
+        "cache_path": "/home/mp/work/track_anything/.cache_dataset",
     }
 }
 
